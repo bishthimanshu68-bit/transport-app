@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transport Fleet Control Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .card-stat { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+        .stat-val { font-size: 2.2rem; font-weight: 700; color: #38bdf8; }
+        .table-dark-custom { background-color: #1e293b; color: #f8fafc; border-radius: 10px; overflow: hidden; }
+        .table-dark-custom th { background-color: #334155; color: #94a3b8; border: none; padding: 14px; }
+        .table-dark-custom td { border-color: #334155; vertical-align: middle; padding: 14px; }
+        .badge-status { padding: 6px 12px; border-radius: 20px; font-weight: 600; }
+        .btn-excel { background-color: #16a34a; color: white; font-weight: 600; border: none; }
+        .modal-content { background-color: #1e293b; color: #f8fafc; border: 1px solid #334155; }
+        .form-control, .form-select { background-color: #0f172a; color: #fff; border: 1px solid #334155; }
+        .form-control:focus, .form-select:focus { background-color: #0f172a; color: #fff; border-color: #38bdf8; box-shadow: none; }
+    </style>
+</head>
+<body class="p-4">
+
+    <div class="container-fluid">
+        <!-- Header Bar -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold m-0"><i class="bi bi-truck me-2 text-info"></i>Transport Fleet Control Center</h2>
+                <small class="text-secondary">Real-time Fleet Tracking & Editing</small>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary me-2 fw-semibold" id="btnAddNewVehicle">
+                    <i class="bi bi-plus-circle me-1"></i> Add New Vehicle
+                </button>
+                <a href="/export/excel" class="btn btn-excel">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                </a>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card-stat">
+                    <div class="text-secondary fw-semibold">TOTAL FLEET</div>
+                    <div class="stat-val" id="total-count">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-stat">
+                    <div class="text-secondary fw-semibold">AVAILABLE</div>
+                    <div class="stat-val text-success" id="avail-count">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-stat">
+                    <div class="text-secondary fw-semibold">IN TRANSIT</div>
+                    <div class="stat-val text-warning" id="transit-count">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card-stat">
+                    <div class="text-secondary fw-semibold">MAINTENANCE</div>
+                    <div class="stat-val text-danger" id="maint-count">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fleet Table -->
+        <div class="card-stat">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="m-0"><i class="bi bi-list-task me-2 text-primary"></i>Active Fleet List</h4>
+                <input type="text" id="searchInput" class="form-control w-25" placeholder="🔍 Search Truck or Driver...">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark-custom align-middle">
+                    <thead>
+                        <tr>
+                            <th>TRUCK NO</th>
+                            <th>DRIVER NAME</th>
+                            <th>PHONE NO</th>
+                            <th>STATUS</th>
+                            <th>LOCATION</th>
+                            <th>UNLOADING DATE</th>
+                            <th>NEXT PROGRAM</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fleet-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Adding / Editing Vehicle -->
+    <div class="modal fade" id="vehicleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="modalTitle"><i class="bi bi-plus-square me-2 text-info"></i>Vehicle Form</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="vehicleForm">
+                        <input type="hidden" id="edit_id">
+                        <div class="mb-3">
+                            <label class="form-label">Truck Number</label>
+                            <input type="text" id="truck_no" class="form-control" placeholder="e.g. UP16 AB 9999" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Driver Name</label>
+                            <input type="text" id="driver" class="form-control" placeholder="Driver Full Name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="text" id="phone" class="form-control" placeholder="10 Digit Mobile No">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <select id="status" class="form-select">
+                                <option value="Available">Available</option>
+                                <option value="In Transit">In Transit</option>
+                                <option value="Maintenance">Maintenance</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Current Location</label>
+                            <input type="text" id="location" class="form-control" placeholder="e.g. Yard / Noida">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Unloading Date</label>
+                            <input type="date" id="unloading_date" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Next Program</label>
+                            <input type="text" id="next_program" class="form-control" placeholder="e.g. Ready for Dispatch">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold mt-2" id="saveBtn">Save Record</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function() {
+            var globalFleetData = [];
+            var myVehicleModal = null;
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var modalElement = document.getElementById('vehicleModal');
+                if (modalElement) {
+                    myVehicleModal = new bootstrap.Modal(modalElement);
+                }
+                loadFleetData();
+
+                var addBtn = document.getElementById('btnAddNewVehicle');
+                if (addBtn) {
+                    addBtn.addEventListener('click', openAddModal);
+                }
+
+                var searchBox = document.getElementById('searchInput');
+                if (searchBox) {
+                    searchBox.addEventListener('keyup', filterTable);
+                }
+
+                var formElement = document.getElementById('vehicleForm');
+                if (formElement) {
+                    formElement.addEventListener('submit', handleFormSubmit);
+                }
+            });
+
+            function loadFleetData() {
+                fetch('/api/fleet')
+                    .then(function(res) { return res.json(); })
+                    .then(function(dataList) {
+                        globalFleetData = dataList;
+                        renderTable(dataList);
+                    })
+                    .catch(function(err) { console.error("Error loading data:", err); });
+            }
+
+            function renderTable(fleetItems) {
+                var tbody = document.getElementById('fleet-table-body');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                
+                var countTotal = fleetItems.length;
+                var countAvail = 0;
+                var countTransit = 0;
+                var countMaint = 0;
+
+                fleetItems.forEach(function(row) {
+                    if (row.status === 'Available') countAvail++;
+                    else if (row.status === 'In Transit') countTransit++;
+                    else if (row.status === 'Maintenance') countMaint++;
+
+                    var badgeStyle = row.status === 'Available' ? 'bg-success' : (row.status === 'In Transit' ? 'bg-warning text-dark' : 'bg-danger');
+
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = 
+                        '<td><b class="text-info">' + (row.truck_no || '') + '</b></td>' +
+                        '<td>' + (row.driver || '') + '</td>' +
+                        '<td>' + (row.phone || '-') + '</td>' +
+                        '<td><span class="badge ' + badgeStyle + ' badge-status">' + (row.status || '') + '</span></td>' +
+                        '<td>' + (row.location || '-') + '</td>' +
+                        '<td>' + (row.unloading_date || '-') + '</td>' +
+                        '<td><span class="text-warning">' + (row.next_program || '-') + '</span></td>' +
+                        '<td>' +
+                            '<button class="btn btn-sm btn-outline-warning me-1 btn-edit-action" data-id="' + row.id + '"><i class="bi bi-pencil"></i></button>' +
+                            '<button class="btn btn-sm btn-outline-danger btn-delete-action" data-id="' + row.id + '"><i class="bi bi-trash"></i></button>' +
+                        '</td>';
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('total-count').innerText = countTotal;
+                document.getElementById('avail-count').innerText = countAvail;
+                document.getElementById('transit-count').innerText = countTransit;
+                document.getElementById('maint-count').innerText = countMaint;
+
+                // Bind Edit and Delete events
+                var editBtns = tbody.querySelectorAll('.btn-edit-action');
+                editBtns.forEach(function(b) {
+                    b.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        openEditModal(parseInt(id, 10));
+                    });
+                });
+
+                var deleteBtns = tbody.querySelectorAll('.btn-delete-action');
+                deleteBtns.forEach(function(b) {
+                    b.addEventListener('click', function() {
+                        var id = this.getAttribute('data-id');
+                        deleteVehicle(parseInt(id, 10));
+                    });
+                });
+            }
+
+            function openAddModal() {
+                document.getElementById('edit_id').value = '';
+                document.getElementById('vehicleForm').reset();
+                document.getElementById('modalTitle').innerHTML = '<i class="bi bi-plus-square me-2 text-info"></i>Add New Vehicle';
+                if (myVehicleModal) myVehicleModal.show();
+            }
+
+            function openEditModal(recordId) {
+                var foundItem = null;
+                for (var i = 0; i < globalFleetData.length; i++) {
+                    if (globalFleetData[i].id === recordId) {
+                        foundItem = globalFleetData[i];
+                        break;
+                    }
+                }
+                if (!foundItem) return;
+
+                document.getElementById('edit_id').value = foundItem.id;
+                document.getElementById('truck_no').value = foundItem.truck_no || '';
+                document.getElementById('driver').value = foundItem.driver || '';
+                document.getElementById('phone').value = foundItem.phone || '';
+                document.getElementById('status').value = foundItem.status || 'Available';
+                document.getElementById('location').value = foundItem.location || '';
+                document.getElementById('unloading_date').value = foundItem.unloading_date || '';
+                document.getElementById('next_program').value = foundItem.next_program || '';
+
+                document.getElementById('modalTitle').innerHTML = '<i class="bi bi-pencil-square me-2 text-warning"></i>Edit Vehicle Details';
+                if (myVehicleModal) myVehicleModal.show();
+            }
+
+            function handleFormSubmit(evt) {
+                evt.preventDefault();
+                var currentEditId = document.getElementById('edit_id').value;
+                var payload = {
+                    truck_no: document.getElementById('truck_no').value,
+                    driver: document.getElementById('driver').value,
+                    phone: document.getElementById('phone').value,
+                    status: document.getElementById('status').value,
+                    location: document.getElementById('location').value,
+                    unloading_date: document.getElementById('unloading_date').value,
+                    next_program: document.getElementById('next_program').value
+                };
+
+                var requestUrl = currentEditId ? ('/api/fleet/update/' + currentEditId) : '/api/fleet/add';
+
+                fetch(requestUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(resData) {
+                    if (resData.success) {
+                        if (myVehicleModal) myVehicleModal.hide();
+                        loadFleetData();
+                    }
+                })
+                .catch(function(err) { console.error("Submit error:", err); });
+            }
+
+            function deleteVehicle(recordId) {
+                if (confirm('क्या आप सच में यह गाड़ी डिलीट करना चाहते हैं?')) {
+                    fetch('/api/fleet/delete/' + recordId, { method: 'DELETE' })
+                        .then(function(res) { return res.json(); })
+                        .then(function() { loadFleetData(); })
+                        .catch(function(err) { console.error("Delete error:", err); });
+                }
+            }
+
+            function filterTable() {
+                var queryText = document.getElementById('searchInput').value.toLowerCase();
+                var filteredResults = globalFleetData.filter(function(v) { 
+                    var tNo = (v.truck_no || '').toLowerCase();
+                    var dName = (v.driver || '').toLowerCase();
+                    return tNo.indexOf(queryText) !== -1 || dName.indexOf(queryText) !== -1;
+                });
+                renderTable(filteredResults);
+            }
+        })();
+    </script>
+</body>
+</html>
